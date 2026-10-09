@@ -1,0 +1,166 @@
+name: SafeLensAI Dev Backend Deploy
+
+on:
+  push:
+    branches:
+      - feature/backend
+  workflow_dispatch:
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  S3_BUCKET: ${{ secrets.S3_BUCKET_NAME }}
+  APP_NAME: ${{ secrets.CODEDEPLOY_APP_NAME }}
+  DEPLOY_GROUP: ${{ secrets.CODEDEPLOY_DEV_GROUP_NAME }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: "Step 1/5 -- Checkout Code"
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: "Step 2/5 -- Configure AWS Credentials"
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: "Step 3/5 -- Package Application"
+        run: |
+          zip -r deploy-${{ github.sha }}.zip . \
+            -x "*.git*" \
+            -x ".github/*" \
+            -x "venv/*" -x "venv"
+          ZIP_SIZE=$(du -h deploy-${{ github.sha }}.zip | cut -f1)
+          FILE_COUNT=$(zipinfo -t deploy-${{ github.sha }}.zip | grep -oP '\d+(?= files)')
+
+          echo "### Package Created" >> $GITHUB_STEP_SUMMARY
+          echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Size | ${ZIP_SIZE} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Files | ${FILE_COUNT} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: "Step 4/5 -- Upload to S3"
+        run: |
+          aws s3 cp deploy-${{ github.sha }}.zip \
+            s3://${{ env.S3_BUCKET }}/safelensai-backend/deploy-${{ github.sha }}.zip
+
+          echo "### Uploaded to S3" >> $GITHUB_STEP_SUMMARY
+          echo "\`s3://${{ env.S3_BUCKET }}/safelensai-backend/deploy-${{ github.sha }}.zip\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+      - name: "Step 5/5 -- Deploy to EC2 via CodeDeploy"
+        id: codedeploy
+        run: |
+          DEPLOY_START=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+          DEPLOY_ID=$(aws deploy create-deployment \
+            --application-name ${{ env.APP_NAME }} \
+            --deployment-group-name ${{ env.DEPLOY_GROUP }} \
+            --s3-location bucket=${{ env.S3_BUCKET }},key=safelensai-backend/deploy-${{ github.sha }}.zip,bundleType=zip \
+            --query deploymentId \
+            --output text)
+
+          echo "deploy_id=${DEPLOY_ID}" >> $GITHUB_OUTPUT
+          echo "Waiting for CodeDeploy deployment: ${DEPLOY_ID}"
+
+          if aws deploy wait deployment-successful --deployment-id "$DEPLOY_ID" 2>/dev/null; then
+            DEPLOY_END=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            echo "## Deployment Successful" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+            echo "| Deployment ID | \`${DEPLOY_ID}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Pushed by | **${{ github.actor }}** |" >> $GITHUB_STEP_SUMMARY
+            echo "| Started | ${DEPLOY_START} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Completed | ${DEPLOY_END} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### Files Changed in This Push" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            git diff --name-status HEAD~1 HEAD >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "(first push -- full deploy)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          else
+            DEPLOY_END=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
+            echo "## Deployment FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            DEPLOY_INFO=$(aws deploy get-deployment --deployment-id "$DEPLOY_ID" --output json 2>/dev/null || echo "{}")
+            DEPLOY_STATUS=$(echo "$DEPLOY_INFO" | jq -r '.deploymentInfo.status // "Unknown"')
+            ERROR_MSG=$(echo "$DEPLOY_INFO" | jq -r '.deploymentInfo.errorInformation.message // "No error message available"')
+            ERROR_CODE=$(echo "$DEPLOY_INFO" | jq -r '.deploymentInfo.errorInformation.code // "N/A"')
+
+            echo "| Detail | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+            echo "| Deployment ID | \`${DEPLOY_ID}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | ${DEPLOY_STATUS} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Error Code | \`${ERROR_CODE}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+            echo "| Pushed by | **${{ github.actor }}** |" >> $GITHUB_STEP_SUMMARY
+            echo "| Started | ${DEPLOY_START} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Failed at | ${DEPLOY_END} |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### Error Message" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "${ERROR_MSG}" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            TARGET_ID=$(aws deploy list-deployment-targets \
+              --deployment-id "$DEPLOY_ID" \
+              --query 'targetIds[0]' \
+              --output text 2>/dev/null || echo "")
+
+            if [ -n "$TARGET_ID" ] && [ "$TARGET_ID" != "None" ] && [ "$TARGET_ID" != "" ]; then
+              TARGET_INFO=$(aws deploy get-deployment-target \
+                --deployment-id "$DEPLOY_ID" \
+                --target-id "$TARGET_ID" \
+                --output json 2>/dev/null || echo "{}")
+
+              echo "### Lifecycle Events (which step failed)" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              echo "| Step | Status |" >> $GITHUB_STEP_SUMMARY
+              echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+              echo "$TARGET_INFO" | jq -r '
+                .deploymentTarget.instanceTarget.lifecycleEvents[]
+                | "| \(.lifecycleEventName) | \(if .status == "Succeeded" then "Succeeded" elif .status == "Failed" then "**FAILED**" elif .status == "Skipped" then "Skipped" else .status end) |"
+              ' >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              FAILED_LOG=$(echo "$TARGET_INFO" | jq -r '
+                .deploymentTarget.instanceTarget.lifecycleEvents[]
+                | select(.status == "Failed")
+                | .diagnostics.logTail // empty
+              ' 2>/dev/null || echo "")
+
+              FAILED_SCRIPT=$(echo "$TARGET_INFO" | jq -r '
+                .deploymentTarget.instanceTarget.lifecycleEvents[]
+                | select(.status == "Failed")
+                | .diagnostics.scriptName // empty
+              ' 2>/dev/null || echo "")
+
+              if [ -n "$FAILED_LOG" ]; then
+                echo "### Failed Script Output (\`${FAILED_SCRIPT}\`)" >> $GITHUB_STEP_SUMMARY
+                echo '```bash' >> $GITHUB_STEP_SUMMARY
+                echo "${FAILED_LOG}" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+              fi
+            fi
+
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### Files Changed in This Push (possible cause)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            git diff --name-status HEAD~1 HEAD >> $GITHUB_STEP_SUMMARY 2>/dev/null || echo "(first push -- full deploy)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+
+            echo "::error::Deployment ${DEPLOY_ID} FAILED -- Status: ${DEPLOY_STATUS} -- ${ERROR_MSG}"
+            exit 1
+          fi
+

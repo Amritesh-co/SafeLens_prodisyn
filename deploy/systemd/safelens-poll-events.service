@@ -1,0 +1,20 @@
+[Unit]
+Description=SafeLensAI notification poller (poll_events)
+After=network.target
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/database-api
+Environment=DJANGO_SETTINGS_MODULE=safelensai.settings
+Environment=ENABLE_DB_INIT_ON_STARTUP=0
+Environment=PYTHONUNBUFFERED=1
+# Load the same environment variables (AWS creds, SES sender, DB creds, etc.) as the API.
+# The leading '-' makes it optional (service still starts if the file is missing).
+EnvironmentFile=-/home/ubuntu/app/database-api/.env
+ExecStart=/home/ubuntu/app/database-api/venv/bin/python manage.py poll_events
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

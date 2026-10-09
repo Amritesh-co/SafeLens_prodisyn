@@ -1,0 +1,11 @@
+[Unit]
+Description=Run SafeLensAI WhatsApp retry every 10 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=10min
+Persistent=true
+Unit=safelens-whatsapp-retry.service
+
+[Install]
+WantedBy=timers.target

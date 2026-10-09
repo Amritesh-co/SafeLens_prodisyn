@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SafeLens Assistant · Sign in</title>
+    <style>
+        :root { --bg:#f4f1ea; --panel:#fffdf8; --ink:#16221f; --muted:#60706b; --accent:#0b6b57; --line:#dfd7cb; --bad:#b42318; }
+        * { box-sizing: border-box; }
+        body { margin:0; min-height:100vh; display:grid; place-items:center; background:var(--bg); color:var(--ink);
+               font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; padding:16px; }
+        form { width:100%; max-width:360px; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:28px; }
+        h1 { font-size:20px; margin:0 0 4px; }
+        p { color:var(--muted); margin:0 0 20px; font-size:13px; }
+        label { display:block; font-size:13px; font-weight:600; margin:14px 0 6px; }
+        input { width:100%; padding:10px 12px; border:1px solid var(--line); border-radius:8px; font:inherit; background:#fff; }
+        input:focus { outline:2px solid var(--accent); outline-offset:-1px; }
+        button { margin-top:20px; width:100%; padding:11px; border:0; border-radius:8px; background:var(--accent); color:#fff; font:inherit; font-weight:600; cursor:pointer; }
+        .err { color:var(--bad); font-size:13px; margin-top:12px; }
+        .hint { margin-top:18px; font-size:12px; color:var(--muted); border-top:1px solid var(--line); padding-top:14px; }
+        code { background:#f0ebe1; padding:1px 5px; border-radius:4px; }
+    </style>
+</head>
+<body>
+<form method="post">
+    {% csrf_token %}
+    <h1>SafeLens Assistant</h1>
+    <p>Local playground · sign in with an app user</p>
+    <label for="id_username">Username</label>
+    <input id="id_username" name="username" autocomplete="username" autofocus required>
+    <label for="id_password">Password</label>
+    <input id="id_password" name="password" type="password" autocomplete="current-password" required>
+    {% if form.errors %}<div class="err">Wrong username or password.</div>{% endif %}
+    <button type="submit">Sign in</button>
+    <div class="hint">Demo users: <code>admin</code> (both sites) · <code>demo_supervisor</code> (Pune only)</div>
+</form>
+</body>
+</html>

@@ -1,0 +1,12 @@
+[Unit]
+Description=SafeLensAI WhatsApp retry worker
+After=network.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+WorkingDirectory=/home/ubuntu/app/database-api
+Environment=DJANGO_SETTINGS_MODULE=safelensai.settings
+Environment=ENABLE_DB_INIT_ON_STARTUP=0
+EnvironmentFile=-/home/ubuntu/app/database-api/.env
+ExecStart=/home/ubuntu/app/database-api/venv/bin/python manage.py retry_failed_whatsapp --hours 24 --limit 100

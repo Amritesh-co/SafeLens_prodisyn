@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SafeLens Ops Dashboard</title>
+    <style>
+        :root {
+            --bg: #f4f1ea;
+            --panel: #fffdf8;
+            --ink: #16221f;
+            --muted: #60706b;
+            --accent: #0b6b57;
+            --accent-2: #c56a2d;
+            --line: #dfd7cb;
+            --good: #0b7a46;
+            --warn: #b56a16;
+            --bad: #b42318;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: Georgia, "Times New Roman", serif;
+            color: var(--ink);
+            background:
+                radial-gradient(circle at top right, rgba(197,106,45,.14), transparent 28%),
+                radial-gradient(circle at bottom left, rgba(11,107,87,.12), transparent 24%),
+                var(--bg);
+        }
+        .shell {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 28px 18px 48px;
+        }
+        .hero {
+            display: grid;
+            gap: 18px;
+            grid-template-columns: 1.3fr .9fr;
+            margin-bottom: 22px;
+        }
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            box-shadow: 0 16px 44px rgba(22,34,31,.07);
+        }
+        .hero-main {
+            padding: 24px;
+        }
+        .eyebrow {
+            letter-spacing: .12em;
+            text-transform: uppercase;
+            font-size: 12px;
+            color: var(--accent);
+            margin-bottom: 8px;
+        }
+        h1 {
+            margin: 0 0 10px;
+            font-size: clamp(30px, 5vw, 50px);
+            line-height: 1;
+            font-weight: 700;
+        }
+        .lead {
+            margin: 0;
+            color: var(--muted);
+            font-size: 17px;
+            line-height: 1.5;
+            max-width: 58ch;
+        }
+        .hero-side {
+            padding: 20px;
+            display: grid;
+            gap: 14px;
+            align-content: start;
+        }
+        .token-grid {
+            display: grid;
+            gap: 10px;
+        }
+        label {
+            font-size: 13px;
+            font-weight: 700;
+            letter-spacing: .05em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        input, select, button, textarea {
+            width: 100%;
+            border-radius: 12px;
+            border: 1px solid var(--line);
+            padding: 12px 14px;
+            font: inherit;
+            background: #fff;
+            color: var(--ink);
+        }
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            width: auto;
+            min-width: 140px;
+            cursor: pointer;
+            background: var(--accent);
+            color: #fff;
+            border: 0;
+            font-weight: 700;
+        }
+        button.secondary { background: #243430; }
+        button.ghost {
+            background: transparent;
+            color: var(--accent);
+            border: 1px solid var(--accent);
+        }
+        .status {
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            background: #f5f8f7;
+            border: 1px solid var(--line);
+            color: var(--muted);
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+        .card {
+            padding: 18px;
+            min-height: 120px;
+        }
+        .span-3 { grid-column: span 3; }
+        .span-4 { grid-column: span 4; }
+        .span-5 { grid-column: span 5; }
+        .span-6 { grid-column: span 6; }
+        .span-7 { grid-column: span 7; }
+        .span-8 { grid-column: span 8; }
+        .span-12 { grid-column: span 12; }
+        .metric-label {
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            font-size: 12px;
+        }
+        .metric-value {
+            margin-top: 8px;
+            font-size: 36px;
+            line-height: 1;
+            font-weight: 700;
+        }
+        .metric-sub {
+            margin-top: 10px;
+            color: var(--muted);
+            font-size: 14px;
+        }
+        .section-title {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .section-title h2 {
+            margin: 0;
+            font-size: 21px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            text-align: left;
+            padding: 10px 8px;
+            border-bottom: 1px solid var(--line);
+            vertical-align: top;
+        }
+        th {
+            color: var(--muted);
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+        }
+        .pill {
+            display: inline-flex;
+            align-items: center;
+            padding: 5px 9px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .04em;
+        }
+        .sent { background: rgba(11,122,70,.12); color: var(--good); }
+        .skipped { background: rgba(181,106,22,.12); color: var(--warn); }
+        .failed { background: rgba(180,35,24,.12); color: var(--bad); }
+        .tiny {
+            font-size: 12px;
+            color: var(--muted);
+        }
+        .mono {
+            font-family: "SFMono-Regular", Consolas, monospace;
+            word-break: break-all;
+        }
+        @media (max-width: 980px) {
+            .hero { grid-template-columns: 1fr; }
+            .span-3, .span-4, .span-5, .span-6, .span-7, .span-8 { grid-column: span 12; }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <section class="hero">
+            <div class="panel hero-main">
+                <div class="eyebrow">SafeLens Operations</div>
+                <h1>Minimal Notification UI</h1>
+                <p class="lead">
+                    This page is a lightweight ops dashboard built into the Django backend.
+                    It reads the existing APIs, shows recent incidents and notification history,
+                    and lets an operator run a WhatsApp retry without needing another frontend project.
+                </p>
+            </div>
+            <div class="panel hero-side">
+                <div class="token-grid">
+                    <label for="token">API Token</label>
+                    <input id="token" type="password" placeholder="Paste admin token here">
+                </div>
+                <div class="btn-row">
+                    <button id="loadBtn">Load Dashboard</button>
+                    <button id="saveBtn" class="ghost" type="button">Remember Token</button>
+                    <button id="clearBtn" class="secondary" type="button">Clear</button>
+                </div>
+                <div id="statusBox" class="status">Waiting for token. This page uses the same backend APIs already running in production.</div>
+            </div>
+        </section>
+
+        <section class="grid">
+            <div class="panel card span-3">
+                <div class="metric-label">Recent Incidents</div>
+                <div id="metricIncidents" class="metric-value">-</div>
+                <div class="metric-sub">Current payload from <span class="mono">/api/overview/latest/</span></div>
+            </div>
+            <div class="panel card span-3">
+                <div class="metric-label">WhatsApp Sent</div>
+                <div id="metricWaSent" class="metric-value">-</div>
+                <div class="metric-sub">Count from notification summary API</div>
+            </div>
+            <div class="panel card span-3">
+                <div class="metric-label">WhatsApp Failed</div>
+                <div id="metricWaFailed" class="metric-value">-</div>
+                <div class="metric-sub">Provider/API failures only</div>
+            </div>
+            <div class="panel card span-3">
+                <div class="metric-label">WhatsApp Skipped</div>
+                <div id="metricWaSkipped" class="metric-value">-</div>
+                <div class="metric-sub">Includes stale incidents and disabled toggles</div>
+            </div>
+
+            <div class="panel card span-4">
+                <div class="section-title">
+                    <h2>Retry Failed WhatsApp</h2>
+                </div>
+                <div class="token-grid">
+                    <label for="retryHours">Hours To Inspect</label>
+                    <input id="retryHours" type="number" value="24" min="1" max="168">
+                    <label for="retryLimit">Retry Limit</label>
+                    <input id="retryLimit" type="number" value="20" min="1" max="500">
+                </div>
+                <div class="btn-row" style="margin-top: 12px;">
+                    <button id="retryDryBtn" class="ghost" type="button">Dry Run</button>
+                    <button id="retryBtn" type="button">Retry Now</button>
+                </div>
+                <div id="retryResult" class="tiny" style="margin-top:12px;">No retry run yet.</div>
+            </div>
+
+            <div class="panel card span-8">
+                <div class="section-title">
+                    <h2>Recent Incidents</h2>
+                    <div class="tiny">Pulled from <span class="mono">/api/overview/latest/?limit=10</span></div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Type</th>
+                            <th>Location</th>
+                            <th>Time</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="incidentsBody">
+                        <tr><td colspan="5" class="tiny">No data loaded yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="panel card span-12">
+                <div class="section-title">
+                    <h2>Notification History</h2>
+                    <div class="tiny">Pulled from <span class="mono">/api/notification-history/?limit=20</span></div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Created</th>
+                            <th>Event</th>
+                            <th>Channel</th>
+                            <th>Recipient</th>
+                            <th>Status</th>
+                            <th>Template</th>
+                            <th>Error / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody id="historyBody">
+                        <tr><td colspan="7" class="tiny">No data loaded yet.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        const tokenInput = document.getElementById("token");
+        const statusBox = document.getElementById("statusBox");
+        const loadBtn = document.getElementById("loadBtn");
+        const saveBtn = document.getElementById("saveBtn");
+        const clearBtn = document.getElementById("clearBtn");
+        const retryDryBtn = document.getElementById("retryDryBtn");
+        const retryBtn = document.getElementById("retryBtn");
+
+        const metricIncidents = document.getElementById("metricIncidents");
+        const metricWaSent = document.getElementById("metricWaSent");
+        const metricWaFailed = document.getElementById("metricWaFailed");
+        const metricWaSkipped = document.getElementById("metricWaSkipped");
+        const incidentsBody = document.getElementById("incidentsBody");
+        const historyBody = document.getElementById("historyBody");
+        const retryResult = document.getElementById("retryResult");
+
+        const tokenKey = "safelens_ops_token";
+        const saved = window.localStorage.getItem(tokenKey);
+        if (saved) tokenInput.value = saved;
+
+        function setStatus(message, tone = "neutral") {
+            statusBox.textContent = message;
+            statusBox.style.color = tone === "error" ? "var(--bad)" : tone === "ok" ? "var(--good)" : "var(--muted)";
+            statusBox.style.borderColor = tone === "error" ? "rgba(180,35,24,.28)" : tone === "ok" ? "rgba(11,122,70,.28)" : "var(--line)";
+        }
+
+        function authHeaders() {
+            const token = tokenInput.value.trim();
+            return token ? { "Authorization": `Token ${token}` } : {};
+        }
+
+        async function fetchJson(url, options = {}) {
+            const response = await fetch(url, {
+                ...options,
+                headers: {
+                    "Content-Type": "application/json",
+                    ...authHeaders(),
+                    ...(options.headers || {})
+                }
+            });
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`${response.status} ${response.statusText}: ${text}`);
+            }
+            return response.json();
+        }
+
+        function statusPill(value) {
+            const normalized = String(value || "").toLowerCase();
+            const css = normalized === "sent" ? "sent" : normalized === "failed" ? "failed" : "skipped";
+            return `<span class="pill ${css}">${value || "UNKNOWN"}</span>`;
+        }
+
+        function renderIncidents(rows) {
+            if (!rows.length) {
+                incidentsBody.innerHTML = `<tr><td colspan="5" class="tiny">No incidents returned.</td></tr>`;
+                return;
+            }
+            incidentsBody.innerHTML = rows.map(row => `
+                <tr>
+                    <td class="mono">${row.event_id ?? ""}</td>
+                    <td>${row.sub_type || row.event_type || ""}</td>
+                    <td>${row.location || ""}</td>
+                    <td>${row.timestamp || ""}</td>
+                    <td>${row.status || "Open"}</td>
+                </tr>
+            `).join("");
+        }
+
+        function renderHistory(rows) {
+            if (!rows.length) {
+                historyBody.innerHTML = `<tr><td colspan="7" class="tiny">No history returned.</td></tr>`;
+                return;
+            }
+            historyBody.innerHTML = rows.map(row => `
+                <tr>
+                    <td>${row.created_at || ""}</td>
+                    <td class="mono">${row.event_id || ""}</td>
+                    <td>${row.channel || ""}</td>
+                    <td class="mono">${row.recipient || ""}</td>
+                    <td>${statusPill(row.status)}</td>
+                    <td>${row.template_name || ""}</td>
+                    <td>${row.error_message || ""}</td>
+                </tr>
+            `).join("");
+        }
+
+        function renderSummary(rows, incidentCount) {
+            const waSent = rows.find(row => row.channel === "WHATSAPP" && row.status === "SENT")?.count || 0;
+            const waFailed = rows.find(row => row.channel === "WHATSAPP" && row.status === "FAILED")?.count || 0;
+            const waSkipped = rows.find(row => row.channel === "WHATSAPP" && row.status === "SKIPPED")?.count || 0;
+            metricIncidents.textContent = incidentCount;
+            metricWaSent.textContent = waSent;
+            metricWaFailed.textContent = waFailed;
+            metricWaSkipped.textContent = waSkipped;
+        }
+
+        async function loadDashboard() {
+            if (!tokenInput.value.trim()) {
+                setStatus("Paste an admin API token first.", "error");
+                return;
+            }
+            setStatus("Loading incidents, history, and retry summary from live APIs...");
+            try {
+                const [incidents, history, summary] = await Promise.all([
+                    fetchJson("/api/overview/latest/?limit=10"),
+                    fetchJson("/api/notification-history/?limit=20"),
+                    fetchJson("/api/notification-history/summary/")
+                ]);
+                renderIncidents(Array.isArray(incidents) ? incidents : incidents.results || []);
+                renderHistory(Array.isArray(history) ? history : history.results || []);
+                renderSummary(Array.isArray(summary) ? summary : summary.results || [], (Array.isArray(incidents) ? incidents : incidents.results || []).length);
+                setStatus("Dashboard loaded successfully.", "ok");
+            } catch (error) {
+                setStatus(`Load failed: ${error.message}`, "error");
+            }
+        }
+
+        async function runRetry(dryRun) {
+            if (!tokenInput.value.trim()) {
+                setStatus("Paste an admin API token first.", "error");
+                return;
+            }
+            retryResult.textContent = dryRun ? "Running dry-run retry check..." : "Running live retry...";
+            try {
+                const data = await fetchJson("/api/notifications/retry-whatsapp/", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        hours: Number(document.getElementById("retryHours").value || 24),
+                        limit: Number(document.getElementById("retryLimit").value || 20),
+                        dry_run: dryRun
+                    })
+                });
+                retryResult.textContent = JSON.stringify(data, null, 2);
+                setStatus(dryRun ? "Retry dry run completed." : "Retry run completed.", "ok");
+                await loadDashboard();
+            } catch (error) {
+                retryResult.textContent = error.message;
+                setStatus(`Retry failed: ${error.message}`, "error");
+            }
+        }
+
+        loadBtn.addEventListener("click", loadDashboard);
+        saveBtn.addEventListener("click", () => {
+            if (tokenInput.value.trim()) {
+                window.localStorage.setItem(tokenKey, tokenInput.value.trim());
+                setStatus("Token saved in this browser only.", "ok");
+            } else {
+                setStatus("Nothing to save. Paste a token first.", "error");
+            }
+        });
+        clearBtn.addEventListener("click", () => {
+            tokenInput.value = "";
+            window.localStorage.removeItem(tokenKey);
+            setStatus("Saved token cleared.", "ok");
+        });
+        retryDryBtn.addEventListener("click", () => runRetry(true));
+        retryBtn.addEventListener("click", () => runRetry(false));
+    </script>
+</body>
+</html>

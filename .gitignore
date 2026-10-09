@@ -1,0 +1,60 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+env/
+
+# Environment
+#.env.*
+
+# Database
+db.sqlite3
+*.sqlite3
+
+# Logs
+*.log
+
+# Editor/IDE
+tags
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Django
+media/
+staticfiles/
+
+# Runtime/debug output
+error.html
+out.html
+simulation_output.txt
+
+# Local scratch files
+file
+
+#ignore all .env files
+.env
+.env.*
+
+#except for example template
+!.env.example
+
+preview.html
+
+
+
+# Microsoft Graph token cache (contains auth tokens)
+ms_token_cache.json
+
+# Local backups
+*.orig
